@@ -1,0 +1,24 @@
+name: tests
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+
+      - name: Install dependencies & run tests for auth
+        working-directory: auth
+        run: |
+          npm install
+          npm run test:ci
+        env:
+          NODE_ENV: test
