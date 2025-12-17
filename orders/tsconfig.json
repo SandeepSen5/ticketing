@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    // File structure
+    "rootDir": "./src",
+    "outDir": "./dist",
+
+    // Target environment
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+
+    // Node.js type definitions
+    "types": ["node", "jest"],
+
+    // Output options
+    "sourceMap": true,
+    "declaration": true,
+
+    // Type checking
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src","**/*.test.ts", "**/*.spec.ts"],
+  "exclude": ["node_modules"]
+}
