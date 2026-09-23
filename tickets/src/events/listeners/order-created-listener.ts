@@ -7,6 +7,7 @@ import { TicketUpdatedPublisher } from '../publishers/ticket-updated-publisher';
 export class OrderCreatedListener extends Listener<OrderCreatedEvent> {
   subject: Subjects.OrderCreated = Subjects.OrderCreated;
   queueGroupName = queueGroupName;
+  
 
   async onMessage(data: OrderCreatedEvent['data'], msg: Message) {
     // Find the ticket that the order is reserving

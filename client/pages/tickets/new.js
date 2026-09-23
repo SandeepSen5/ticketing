@@ -4,7 +4,7 @@ import useRequest from '../../hooks/use-request';
 
 const NewTicket = () => {
   const [title, setTitle] = useState('');
-  const [price, setPrice] = useState(0);
+  const [price, setPrice] = useState('');
   const { doRequest, errors } = useRequest({
     url: '/api/tickets',
     method: 'post',

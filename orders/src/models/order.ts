@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { updateIfCurrentPlugin } from 'mongoose-update-if-current';
 import { OrderStatus } from '@go-tickets/common';
 import { TicketDoc } from './ticket';
+
 export { OrderStatus };
 
 interface OrderAttrs {
@@ -17,6 +18,7 @@ interface OrderDoc extends mongoose.Document {
   expiresAt: Date;
   ticket: TicketDoc;
   version: number;
+  id: string;
 }
 
 interface OrderModel extends mongoose.Model<OrderDoc> {
@@ -46,10 +48,10 @@ const orderSchema = new mongoose.Schema(
   {
     toJSON: {
       transform(doc, ret: any) {
-        ret.id = ret._id;
+        ret.id = ret._id.toString();
         delete ret._id;
-      }
-    }
+      },
+    },
   }
 );
 

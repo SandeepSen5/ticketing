@@ -21,9 +21,11 @@ router.delete(
     if (!order) {
       throw new NotFoundError();
     }
+
     if (order.userId !== req.currentUser!.id) {
       throw new NotAuthorizedError();
     }
+    
     order.status = OrderStatus.Cancelled;
     await order.save();
 
