@@ -38,7 +38,7 @@ router.post(
 
     const charge = await stripe.charges.create({
       currency: 'usd',
-      amount: order.price * 100,
+      amount: Math.round(order.price * 100),
       source: token,
     });
     const payment = Payment.build({
@@ -46,7 +46,7 @@ router.post(
       stripeId: charge.id,
     });
     await payment.save();
-    new PaymentCreatedPublisher(natsWrapper.client).publish({
+    await new PaymentCreatedPublisher(natsWrapper.client).publish({
       id: payment.id,
       orderId: payment.orderId,
       stripeId: payment.stripeId,

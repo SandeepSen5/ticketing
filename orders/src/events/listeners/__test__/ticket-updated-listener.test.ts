@@ -67,3 +67,24 @@ it('does not call ack if the event has a skipped version number', async () => {
 
   expect(msg.ack).not.toHaveBeenCalled();
 });
+
+it('advances the version even when title and price are unchanged', async () => {
+  // e.g. tickets publishes ticket:updated when an order reserves the ticket
+  const { msg, data, ticket, listener } = await setup();
+
+  data.title = ticket.title;
+  data.price = ticket.price;
+
+  await listener.onMessage(data, msg);
+
+  const updatedTicket = await Ticket.findById(ticket.id);
+  expect(updatedTicket!.version).toEqual(data.version);
+
+  // the next event in the sequence must still be accepted
+  const nextData = { ...data, version: data.version + 1, price: 50 };
+  await listener.onMessage(nextData, msg);
+
+  const latestTicket = await Ticket.findById(ticket.id);
+  expect(latestTicket!.version).toEqual(nextData.version);
+  expect(latestTicket!.price).toEqual(50);
+});

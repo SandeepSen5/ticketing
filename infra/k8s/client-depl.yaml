@@ -15,6 +15,9 @@ spec:
       containers:
         - name: client
           image: sandeepdocker123sen/client
+          env:
+            - name: NEXT_PUBLIC_STRIPE_KEY
+              value: 'pk_test_51Nci8ASGZJukKXvUderxBN1Bd6hKdafbxX9xDQo3v6emN6nu2Jvs5leULXV0GFy1OyziysnGvM4Hj5w7u3df7jdw00azWYME7E'
 ---
 apiVersion: v1
 kind: Service

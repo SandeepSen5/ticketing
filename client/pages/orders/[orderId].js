@@ -4,7 +4,7 @@ import Router from 'next/router';
 import useRequest from '../../hooks/use-request';
 
 const OrderShow = ({ order, currentUser }) => {
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(null);
   const { doRequest, errors } = useRequest({
     url: '/api/payments',
     method: 'post',
@@ -28,7 +28,11 @@ const OrderShow = ({ order, currentUser }) => {
     };
   }, [order]);
 
-  if (timeLeft < 0) {
+  if (timeLeft === null) {
+    return <div>Loading...</div>;
+  }
+
+  if (timeLeft <= 0) {
     return <div>Order Expired</div>;
   }
 
@@ -37,9 +41,9 @@ const OrderShow = ({ order, currentUser }) => {
       Time left to pay: {timeLeft} seconds
       <StripeCheckout
         token={({ id }) => doRequest({ token: id })}
-        stripeKey="pk_test_51Nci8ASGZJukKXvUderxBN1Bd6hKdafbxX9xDQo3v6emN6nu2Jvs5leULXV0GFy1OyziysnGvM4Hj5w7u3df7jdw00azWYME7E"
-        amount={order.ticket.price * 100}
-        email={currentUser.email}
+        stripeKey={process.env.NEXT_PUBLIC_STRIPE_KEY}
+        amount={Math.round(order.ticket.price * 100)}
+        email={currentUser?.email}
       />
       {errors}
     </div>

@@ -1,6 +1,4 @@
 import express from 'express';
-import { json } from 'body-parser';
-import mongoose from 'mongoose';
 import cookieSession from 'cookie-session';
 import { errorHandler, NotFoundError, currentUser } from '@go-tickets/common';
 import { createTicketRouter } from './routes/new';
@@ -12,7 +10,7 @@ import { updateTicketRouter } from './routes/update';
 const app = express();
 
 app.set('trust proxy', true);
-app.use(json());
+app.use(express.json());
 app.use(
   cookieSession({
     signed: false,

@@ -15,7 +15,14 @@ const AppComponent = ({ Component, pageProps, currentUser }) => {
 
 AppComponent.getInitialProps = async (appContext) => {
   const client = buildClient(appContext.ctx);
-  const { data } = await client.get('/api/users/currentuser');
+
+  // If auth is unreachable, treat the visitor as signed out instead of crashing every page
+  let data = { currentUser: null };
+  try {
+    ({ data } = await client.get('/api/users/currentuser'));
+  } catch (err) {
+    console.error('Could not load current user:', err.message);
+  }
 
   let pageProps = {};
   if (appContext.Component.getInitialProps) {

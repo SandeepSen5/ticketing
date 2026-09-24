@@ -64,3 +64,15 @@ it('ack the message', async () => {
 
     expect(msg.ack).toHaveBeenCalled();
 });
+
+it('does not publish again when the order is already cancelled', async () => {
+    const { listener, order, data, msg } = await setup();
+
+    order.set({ status: OrderStatus.Cancelled });
+    await order.save();
+
+    await listener.onMessage(data, msg);
+
+    expect(natsWrapper.client.publish).not.toHaveBeenCalled();
+    expect(msg.ack).toHaveBeenCalled();
+});
