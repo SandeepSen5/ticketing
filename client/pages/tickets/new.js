@@ -17,17 +17,14 @@ const NewTicket = () => {
 
   const onSubmit = (event) => {
     event.preventDefault();
-
     doRequest();
   };
 
   const onBlur = () => {
     const value = parseFloat(price);
-
     if (isNaN(value)) {
       return;
     }
-
     setPrice(value.toFixed(2));
   };
 
