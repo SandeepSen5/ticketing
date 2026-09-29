@@ -1,18 +1,13 @@
 import { useEffect, useState } from 'react';
-import StripeCheckout from 'react-stripe-checkout';
+import { Elements } from '@stripe/react-stripe-js';
+import { loadStripe } from '@stripe/stripe-js';
 import Router from 'next/router';
-import useRequest from '../../hooks/use-request';
+import StripeCheckoutForm from '../../components/stripe-checkout-form';
 
-const OrderShow = ({ order, currentUser }) => {
+const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_KEY);
+
+const OrderShow = ({ order }) => {
   const [timeLeft, setTimeLeft] = useState(null);
-  const { doRequest, errors } = useRequest({
-    url: '/api/payments',
-    method: 'post',
-    body: {
-      orderId: order.id,
-    },
-    onSuccess: () => Router.push('/orders'),
-  });
 
   useEffect(() => {
     const findTimeLeft = () => {
@@ -39,13 +34,12 @@ const OrderShow = ({ order, currentUser }) => {
   return (
     <div>
       Time left to pay: {timeLeft} seconds
-      <StripeCheckout
-        token={({ id }) => doRequest({ token: id })}
-        stripeKey={process.env.NEXT_PUBLIC_STRIPE_KEY}
-        amount={Math.round(order.ticket.price * 100)}
-        email={currentUser?.email}
-      />
-      {errors}
+      <Elements stripe={stripePromise}>
+        <StripeCheckoutForm
+          orderId={order.id}
+          onSuccess={() => Router.push('/orders')}
+        />
+      </Elements>
     </div>
   );
 };

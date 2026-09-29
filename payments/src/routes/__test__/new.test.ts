@@ -9,94 +9,134 @@ import { Payment } from '../../models/payment';
 // Never call the real Stripe API from tests
 jest.mock('../../stripe', () => ({
   stripe: {
-    charges: {
-      create: jest.fn().mockResolvedValue({ id: 'ch_test_123' }),
+    paymentIntents: {
+      create: jest.fn(),
+      retrieve: jest.fn(),
     },
   },
 }));
 
-it('returns a 404 when purchasing an order that does not exist', async () => {
-  await request(app)
-    .post('/api/payments')
-    .set('Cookie', global.signin())
-    .send({
-      token: 'asldkfj',
-      orderId: new mongoose.Types.ObjectId().toHexString(),
-    })
-    .expect(404);
-});
-
-it('returns a 401 when purchasing an order that doesnt belong to the user', async () => {
+const buildOrder = async (overrides: Partial<{ userId: string; price: number; status: OrderStatus }> = {}) => {
   const order = Order.build({
     id: new mongoose.Types.ObjectId().toHexString(),
-    userId: new mongoose.Types.ObjectId().toHexString(),
+    userId: overrides.userId ?? new mongoose.Types.ObjectId().toHexString(),
     version: 0,
-    price: 20,
-    status: OrderStatus.Created,
+    price: overrides.price ?? 20,
+    status: overrides.status ?? OrderStatus.Created,
   });
   await order.save();
+  return order;
+};
 
-  await request(app)
-    .post('/api/payments')
-    .set('Cookie', global.signin())
-    .send({
-      token: 'token_visa',
-      orderId: order.id,
-    })
-    .expect(401);
+describe('POST /api/payments/create-intent', () => {
+  it('returns a 404 when the order does not exist', async () => {
+    await request(app)
+      .post('/api/payments/create-intent')
+      .set('Cookie', global.signin())
+      .send({ orderId: new mongoose.Types.ObjectId().toHexString() })
+      .expect(404);
+  });
+
+  it('returns a 401 when the order does not belong to the user', async () => {
+    const order = await buildOrder();
+
+    await request(app)
+      .post('/api/payments/create-intent')
+      .set('Cookie', global.signin())
+      .send({ orderId: order.id })
+      .expect(401);
+  });
+
+  it('returns a 400 when the order is cancelled', async () => {
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    const order = await buildOrder({ userId, status: OrderStatus.Cancelled });
+
+    await request(app)
+      .post('/api/payments/create-intent')
+      .set('Cookie', global.signin(userId))
+      .send({ orderId: order.id })
+      .expect(400);
+  });
+
+  it('returns a client secret for a valid order', async () => {
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    const price = Math.floor(Math.random() * 100000) + 1;
+    const order = await buildOrder({ userId, price });
+
+    (stripe.paymentIntents.create as jest.Mock).mockResolvedValue({
+      id: 'pi_test_123',
+      client_secret: 'pi_test_123_secret_abc',
+    });
+
+    const { body } = await request(app)
+      .post('/api/payments/create-intent')
+      .set('Cookie', global.signin(userId))
+      .send({ orderId: order.id })
+      .expect(201);
+
+    expect(body.clientSecret).toEqual('pi_test_123_secret_abc');
+    const createOptions = (stripe.paymentIntents.create as jest.Mock).mock.calls[0][0];
+    expect(createOptions.amount).toEqual(price * 100);
+    expect(createOptions.currency).toEqual('usd');
+    expect(createOptions.metadata.orderId).toEqual(order.id);
+  });
 });
 
-it('returns a 400 when purchasing a cancelled order', async () => {
-  const userId = new mongoose.Types.ObjectId().toHexString();
-  const order = Order.build({
-    id: new mongoose.Types.ObjectId().toHexString(),
-    userId,
-    version: 0,
-    price: 20,
-    status: OrderStatus.Cancelled,
-  });
-  await order.save();
+describe('POST /api/payments', () => {
+  it('returns a 400 when the payment intent has not succeeded', async () => {
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    const order = await buildOrder({ userId });
 
-  await request(app)
-    .post('/api/payments')
-    .set('Cookie', global.signin(userId))
-    .send({
+    (stripe.paymentIntents.retrieve as jest.Mock).mockResolvedValue({
+      id: 'pi_test_123',
+      status: 'requires_action',
+      metadata: { orderId: order.id },
+    });
+
+    await request(app)
+      .post('/api/payments')
+      .set('Cookie', global.signin(userId))
+      .send({ orderId: order.id, paymentIntentId: 'pi_test_123' })
+      .expect(400);
+  });
+
+  it('returns a 400 when the intent belongs to a different order', async () => {
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    const order = await buildOrder({ userId });
+
+    (stripe.paymentIntents.retrieve as jest.Mock).mockResolvedValue({
+      id: 'pi_test_123',
+      status: 'succeeded',
+      metadata: { orderId: 'some-other-order-id' },
+    });
+
+    await request(app)
+      .post('/api/payments')
+      .set('Cookie', global.signin(userId))
+      .send({ orderId: order.id, paymentIntentId: 'pi_test_123' })
+      .expect(400);
+  });
+
+  it('returns a 201 and saves a payment when the intent succeeded', async () => {
+    const userId = new mongoose.Types.ObjectId().toHexString();
+    const order = await buildOrder({ userId });
+
+    (stripe.paymentIntents.retrieve as jest.Mock).mockResolvedValue({
+      id: 'pi_test_123',
+      status: 'succeeded',
+      metadata: { orderId: order.id },
+    });
+
+    await request(app)
+      .post('/api/payments')
+      .set('Cookie', global.signin(userId))
+      .send({ orderId: order.id, paymentIntentId: 'pi_test_123' })
+      .expect(201);
+
+    const payment = await Payment.findOne({
       orderId: order.id,
-      token: 'asdlkfj',
-    })
-    .expect(400);
-});
-
-it('returns a 201 with valid inputs', async () => {
-  const userId = new mongoose.Types.ObjectId().toHexString();
-  const price = Math.floor(Math.random() * 100000);
-  const order = Order.build({
-    id: new mongoose.Types.ObjectId().toHexString(),
-    userId,
-    version: 0,
-    price,
-    status: OrderStatus.Created,
+      stripeId: 'pi_test_123',
+    });
+    expect(payment).not.toBeNull();
   });
-  await order.save();
-
-  await request(app)
-    .post('/api/payments')
-    .set('Cookie', global.signin(userId))
-    .send({
-      token: 'tok_visa',
-      orderId: order.id,
-    })
-    .expect(201);
-
-  expect(stripe.charges.create).toHaveBeenCalledTimes(1);
-  const chargeOptions = (stripe.charges.create as jest.Mock).mock.calls[0][0];
-  expect(chargeOptions.source).toEqual('tok_visa');
-  expect(chargeOptions.amount).toEqual(price * 100);
-  expect(chargeOptions.currency).toEqual('usd');
-
-  const payment = await Payment.findOne({
-    orderId: order.id,
-    stripeId: 'ch_test_123',
-  });
-  expect(payment).not.toBeNull();
 });
