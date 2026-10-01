@@ -2,10 +2,16 @@ name: tests
 
 on:
   pull_request:
+    branches:
+      - clean-master
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [auth, tickets, orders, payments, expiration]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
@@ -15,8 +21,8 @@ jobs:
         with:
           node-version: 18.x
 
-      - name: Install dependencies & run tests for auth
-        working-directory: auth
+      - name: Install dependencies & run tests for ${{ matrix.service }}
+        working-directory: ${{ matrix.service }}
         run: |
           npm install
           npm run test:ci
